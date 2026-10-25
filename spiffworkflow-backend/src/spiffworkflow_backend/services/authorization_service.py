@@ -644,6 +644,8 @@ class AuthorizationService:
 
         permissions_to_assign.append(PermissionToAssign(permission="read", target_uri="/script-assist/enabled"))
         permissions_to_assign.append(PermissionToAssign(permission="create", target_uri="/script-assist/process-message"))
+        permissions_to_assign.append(PermissionToAssign(permission="read", target_uri="/ai-bpmn/enabled"))
+        permissions_to_assign.append(PermissionToAssign(permission="create", target_uri="/ai-bpmn/generate"))
 
         permissions_to_assign.append(PermissionToAssign(permission="read", target_uri="/upsearch-locations"))
 

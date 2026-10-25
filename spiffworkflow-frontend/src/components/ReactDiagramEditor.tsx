@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Button, Box, Typography } from '@mui/material';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -28,6 +29,8 @@ import ConfirmButton from './ConfirmButton';
 import { TASK_METADATA } from '../config';
 import { spiffBpmnApiService } from '../services/SpiffBpmnApiService';
 import DateAndTimeService from '../services/DateAndTimeService';
+import useAiBpmnEnabled from '../hooks/useAiBpmnEnabled';
+import AiBpmnAssistantPanel from './AiBpmnAssistant/AiBpmnAssistantPanel';
 
 type OwnProps = {
   modifiedProcessModelId: string;
@@ -64,6 +67,7 @@ type OwnProps = {
   navigationStack?: DiagramNavigationItem[];
   onNavigate?: (index: number) => void;
   lastSaved?: string | null;
+  onAiDiagramAccepted?: (bpmnXml: string) => void;
 };
 
 export default function ReactDiagramEditor({
@@ -101,9 +105,14 @@ export default function ReactDiagramEditor({
   navigationStack,
   onNavigate,
   lastSaved,
+  onAiDiagramAccepted,
 }: OwnProps) {
   const bpmnEditorRef = useRef<BpmnEditorRef>(null);
   const [showingReferences, setShowingReferences] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const aiAssistantPossible = diagramType === 'bpmn' && !!onAiDiagramAccepted;
+  const { aiBpmnEnabled, aiBpmnStatus } =
+    useAiBpmnEnabled(!aiAssistantPossible);
 
   const { targetUris } = useUriListForPermissions();
   const permissionRequestData: PermissionsToCheck = {};
@@ -288,6 +297,48 @@ export default function ReactDiagramEditor({
     );
   };
 
+  const showAiAssistant =
+    aiAssistantPossible &&
+    aiBpmnEnabled &&
+    ability.can('PUT', targetUris.processModelFileShowPath);
+
+  const getCurrentXml = async (): Promise<string | null> => {
+    if (!bpmnEditorRef.current) {
+      return diagramXML || null;
+    }
+    try {
+      return await bpmnEditorRef.current.getXML();
+    } catch {
+      return diagramXML || null;
+    }
+  };
+
+  const aiAssistantButton = () => {
+    if (!showAiAssistant) {
+      return null;
+    }
+    return (
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<AutoAwesomeIcon />}
+        onClick={() => setAiPanelOpen(true)}
+        data-testid="ai-bpmn-open"
+      >
+        {t('ai_bpmn_button')}
+      </Button>
+    );
+  };
+
+  const aiModelLabel = () => {
+    if (!aiBpmnStatus?.model) {
+      return null;
+    }
+    return aiBpmnStatus.provider
+      ? `${aiBpmnStatus.provider} · ${aiBpmnStatus.model}`
+      : aiBpmnStatus.model;
+  };
+
   const diagramControlButtons = () => {
     return (
       <DiagramZoomControls
@@ -348,6 +399,7 @@ export default function ReactDiagramEditor({
             />
           )}
           {diagramControlButtons()}
+          {aiAssistantButton()}
         </Box>
         <Box
           sx={{
@@ -395,6 +447,15 @@ export default function ReactDiagramEditor({
         onSearchProcessModels={onSearchProcessModels}
         onServiceTasksRequested={onServiceTasksRequested}
       />
+      {showAiAssistant && onAiDiagramAccepted ? (
+        <AiBpmnAssistantPanel
+          open={aiPanelOpen}
+          onClose={() => setAiPanelOpen(false)}
+          getCurrentXml={getCurrentXml}
+          onApply={onAiDiagramAccepted}
+          modelLabel={aiModelLabel()}
+        />
+      ) : null}
     </>
   );
 }

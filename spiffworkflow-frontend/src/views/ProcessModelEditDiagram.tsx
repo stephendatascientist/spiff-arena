@@ -512,6 +512,11 @@ export default function ProcessModelEditDiagram() {
     setDiagramHasChanges(true);
   }, []);
 
+  const onAiDiagramAccepted = useCallback((bpmnXml: string) => {
+    setBpmnXmlForDiagramRendering(bpmnXml);
+    setDiagramHasChanges(true);
+  }, []);
+
   const onDeleteFile = (fileName = params.file_name) => {
     const url = `/process-models/${modifiedProcessModelId}/files/${fileName}`;
     const httpMethod = 'DELETE';
@@ -1264,6 +1269,7 @@ export default function ProcessModelEditDiagram() {
         onSearchProcessModels={onSearchProcessModels}
         onServiceTasksRequested={bpmnEditorCallbacks.onServiceTasksRequested}
         onSetPrimaryFile={onSetPrimaryFileCallback}
+        onAiDiagramAccepted={onAiDiagramAccepted}
         modifiedProcessModelId={modifiedProcessModelId || ''}
         saveDiagram={saveDiagram}
         saveTooltip={unsavedChangesSaveTooltip}

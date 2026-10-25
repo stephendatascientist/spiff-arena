@@ -62,7 +62,8 @@ RUN apk add --no-cache gcc git openssl-dev libpq-dev mysql-dev pkgconfig libffi-
 COPY . /app
 # Database drivers are optional extras; the docker image supports all database
 # types, so install both. A plain `uv sync` elsewhere stays sqlite-only.
-RUN uv sync --no-dev --frozen --extra mysql --extra postgres
+# The ai extra enables the optional AI BPMN assistant (disabled unless configured).
+RUN uv sync --no-dev --frozen --extra mysql --extra postgres --extra ai
 
 ######################## - FINAL
 

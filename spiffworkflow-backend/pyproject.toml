@@ -75,6 +75,13 @@ mysql = [
     # https://docs.sqlalchemy.org/en/20/dialects/mysql.html#module-sqlalchemy.dialects.mysql.mysqlconnector
     "mysqlclient >= 2.2.6",
 ]
+# AI BPMN assistant. Ollama is the default provider. For other providers also install
+# the matching langchain integration, e.g. langchain-openai, langchain-anthropic, langchain-google-genai.
+ai = [
+    "langchain-core>=1.0",
+    "langchain-ollama>=1.0",
+    "langgraph>=1.0",
+]
 
 [dependency-groups]
 dev = [
@@ -103,6 +110,9 @@ dev = [
     "pytest>=8.3.5",
     "setuptools>=78.1.1",
     "types-jsonschema>=4.25.1.20250822",
+    "langgraph>=1.0",
+    "langchain-core>=1.0",
+    "langchain-ollama>=1.0",
 ]
 
 [tool.uv.sources]

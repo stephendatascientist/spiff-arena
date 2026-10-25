@@ -784,6 +784,8 @@ class TestAuthorizationService(BaseTest):
         return sorted(
             [
                 ("/active-users/*", "create"),
+                ("/ai-bpmn/enabled", "read"),
+                ("/ai-bpmn/generate", "create"),
                 ("/connector-proxy/typeahead/*", "read"),
                 ("/debug/version-info", "read"),
                 ("/extensions", "read"),

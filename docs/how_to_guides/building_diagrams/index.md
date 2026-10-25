@@ -6,6 +6,7 @@ If you are authoring in the browser with Ed, see the standalone [Ed documentatio
 ```{toctree}
 :maxdepth: 1
 create_a_bpmn_diagram
+ai_process_assistant
 use_user_tasks_and_forms
 assigning_tasks_to_people
 send_and_receive_messages

@@ -65,6 +65,22 @@ config_from_env("SPIFFWORKFLOW_BACKEND_SERVER_WORKER_COUNT")
 config_from_env("SPIFFWORKFLOW_BACKEND_SCRIPT_ASSIST_ENABLED", default=False)
 config_from_env("SPIFFWORKFLOW_BACKEND_SECRET_KEY_OPENAI_API")
 
+# AI BPMN assistant in the diagram editor. Requires the backend "ai" extra (uv sync --extra ai).
+# PROVIDER: ollama (default), openai, anthropic, google_genai, mistralai, groq,
+# or "some.module:ChatModelClass" for any other LangChain chat model.
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_ENABLED", default=False)
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_PROVIDER", default="ollama")
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_MODEL", default="gemma4:12b-mlx")
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_BASE_URL")
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_API_KEY")
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_TEMPERATURE", default="0.2")
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_TIMEOUT_SECONDS", default=180)
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_MAX_REPAIR_ATTEMPTS", default=2)
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_MAX_HISTORY_MESSAGES", default=6)
+# json object of extra keyword arguments for the chat model class, e.g. {"num_ctx": 8192}
+# ollama models run with {"reasoning": false} unless overridden here
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_MODEL_KWARGS", default="{}")
+
 ### extensions
 config_from_env("SPIFFWORKFLOW_BACKEND_EXTENSIONS_PROCESS_MODEL_PREFIX", default="extensions")
 config_from_env("SPIFFWORKFLOW_BACKEND_GLOBAL_SCRIPTS_DIR", default=None)
