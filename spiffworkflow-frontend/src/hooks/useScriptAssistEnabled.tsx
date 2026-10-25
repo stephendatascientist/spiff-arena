@@ -1,25 +1,37 @@
 import { useEffect, useState } from 'react';
 import HttpService from '../services/HttpService';
 
-/** Basic fetcher for the env value from the backend */
+type ScriptAssistEnabledResponse = {
+  ok: boolean;
+  provider?: string | null;
+  model?: string | null;
+};
+
+/** Fetches whether the AI script/instructions assistant is enabled and which model it uses */
 const useScriptAssistEnabled = () => {
-  const [scriptAssistEnabled, setScriptAssistEnabled] = useState(null);
+  const [response, setResponse] = useState<ScriptAssistEnabledResponse | null>(
+    null,
+  );
 
   useEffect(() => {
-    if (scriptAssistEnabled === null) {
-      const handleResponse = (response: any) => {
-        setScriptAssistEnabled(response.ok);
-      };
-
+    if (response === null) {
       HttpService.makeCallToBackend({
         path: `/script-assist/enabled`,
-        successCallback: handleResponse,
+        successCallback: (result: ScriptAssistEnabledResponse) =>
+          setResponse(result),
+        failureCallback: () => setResponse({ ok: false }),
       });
     }
-  }, [scriptAssistEnabled]);
+  }, [response]);
+
+  const modelLabel =
+    response?.provider && response?.model
+      ? `${response.provider} · ${response.model}`
+      : null;
 
   return {
-    scriptAssistEnabled,
+    scriptAssistEnabled: response === null ? null : response.ok,
+    scriptAssistModelLabel: modelLabel,
   };
 };
 

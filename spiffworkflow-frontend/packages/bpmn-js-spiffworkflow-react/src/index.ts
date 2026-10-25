@@ -6,6 +6,7 @@ export { default as MessageEditor } from './components/messages/MessageEditor';
 export { default as MarkdownEditorDialog } from './components/MarkdownEditorDialog';
 export { default as JsonSchemaEditorDialog } from './components/JsonSchemaEditorDialog';
 export { default as DialogShell } from './components/DialogShell';
+export { AssistLayout, AssistToggleButton } from './components/AssistLayout';
 export { default as FileNameEditorDialog } from './components/FileNameEditorDialog';
 export { default as ScriptAssistPanel } from './components/ScriptAssistPanel';
 export { default as ScriptEditorDialog } from './components/ScriptEditorDialog';

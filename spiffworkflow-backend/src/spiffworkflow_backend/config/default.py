@@ -62,15 +62,19 @@ config_from_env("SPIFFWORKFLOW_BACKEND_BPMN_SPEC_ABSOLUTE_DIR")
 config_from_env("SPIFFWORKFLOW_BACKEND_SERVER_WORKER_COUNT")
 
 ### AI Tools
+# Enables the AI assistant in the script and instructions (markdown) editors. It uses the
+# SPIFFWORKFLOW_BACKEND_AI_BPMN_* provider settings below. For backwards compatibility, if only the legacy
+# OpenAI key is set and no provider is configured, the assistant uses OpenAI with that key.
 config_from_env("SPIFFWORKFLOW_BACKEND_SCRIPT_ASSIST_ENABLED", default=False)
 config_from_env("SPIFFWORKFLOW_BACKEND_SECRET_KEY_OPENAI_API")
 
 # AI BPMN assistant in the diagram editor. Requires the backend "ai" extra (uv sync --extra ai).
 # PROVIDER: ollama (default), openai, anthropic, google_genai, mistralai, groq,
 # or "some.module:ChatModelClass" for any other LangChain chat model.
+# MODEL defaults to gemma4:12b-mlx for ollama.
 config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_ENABLED", default=False)
-config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_PROVIDER", default="ollama")
-config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_MODEL", default="gemma4:12b-mlx")
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_PROVIDER")
+config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_MODEL")
 config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_BASE_URL")
 config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_API_KEY")
 config_from_env("SPIFFWORKFLOW_BACKEND_AI_BPMN_TEMPERATURE", default="0.2")

@@ -178,21 +178,30 @@ paths:
   /script-assist/enabled:
     get:
       operationId: spiffworkflow_backend.routes.script_assist_controller.enabled
-      summary: Returns value of SCRIPT_ASSIST_ENABLED
+      summary: Returns whether the script and instructions assistant is enabled and which provider and model it uses
       tags:
         - AI Tools
       responses:
         "200":
-          description: Returns if AI script should be enabled in UI
+          description: Returns if the AI script and markdown assistant should be enabled in the UI
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OkTrue"
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  provider:
+                    type: string
+                    nullable: true
+                  model:
+                    type: string
+                    nullable: true
 
   /script-assist/process-message:
     post:
       operationId: spiffworkflow_backend.routes.script_assist_controller.process_message
-      summary: Send natural language message in for processing by AI service
+      summary: Write or edit a script task script or task instructions (markdown) from a natural language request
       tags:
         - AI Tools
       requestBody:
@@ -200,17 +209,74 @@ paths:
         content:
           application/json:
             schema:
+              type: object
               properties:
+                kind:
+                  type: string
+                  enum: [script, markdown]
+                  description: What to write. Defaults to script.
+                prompt:
+                  type: string
+                  description: The natural language request.
                 query:
                   type: string
-                  description: The natural language message to be processed.
+                  description: Deprecated alias for prompt.
+                current_content:
+                  type: string
+                  nullable: true
+                  description: The current script or markdown, so the request can modify it.
+                element:
+                  type: object
+                  nullable: true
+                  description: "Information about the BPMN element: id, name, type and script_type (script, preScript, postScript)."
+                unit_tests:
+                  type: array
+                  nullable: true
+                  description: Script unit tests as objects with input and expected (JSON objects or JSON strings).
+                  items:
+                    type: object
+                history:
+                  type: array
+                  nullable: true
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                      content:
+                        type: string
+                process_model_identifier:
+                  type: string
+                  nullable: true
+                  description: Modified process model identifier, used to look up form fields as known variables.
+                bpmn_xml:
+                  type: string
+                  nullable: true
+                  description: Current diagram, used to look up variables set elsewhere in the process.
       responses:
         "200":
-          description: Send back AI service response
+          description: The proposed content
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OkTrue"
+                type: object
+                properties:
+                  content:
+                    type: string
+                  result:
+                    type: string
+                    description: Same as content, for older clients.
+                  message:
+                    type: string
+                  warnings:
+                    type: array
+                    items:
+                      type: string
+                  tests:
+                    type: object
+                    nullable: true
+                  usage:
+                    type: object
 
   /ai-bpmn/enabled:
     get:

@@ -28,7 +28,7 @@ Other elements already in the diagram (for example timers, messages, or subproce
 The assistant only draws the process. After applying a suggestion, finish the model in the properties panel:
 
 - add forms to user tasks ([Use User Tasks and Forms](use_user_tasks_and_forms.md)),
-- write the code for script tasks,
+- write the code for script tasks (the [AI Assist](ai_script_and_instructions_assistant.md) panel in the script editor can draft it),
 - choose a connector operator for service tasks (SpiffWorkflow cannot run a service task without one, so the assistant shows a reminder),
 - choose the called process for call activities,
 - check the conditions on gateway flows. The assistant writes Python conditions such as `amount > 5000` based on the variable names it assumes; adjust them to match your forms and data.

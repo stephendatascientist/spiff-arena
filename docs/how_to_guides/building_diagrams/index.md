@@ -7,6 +7,7 @@ If you are authoring in the browser with Ed, see the standalone [Ed documentatio
 :maxdepth: 1
 create_a_bpmn_diagram
 ai_process_assistant
+ai_script_and_instructions_assistant
 use_user_tasks_and_forms
 assigning_tasks_to_people
 send_and_receive_messages

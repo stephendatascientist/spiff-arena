@@ -16,10 +16,8 @@ import { useTranslation } from 'react-i18next';
 import {
   Button,
   ButtonGroup,
-  Stack,
   TextareaAutosize,
   IconButton,
-  Tooltip,
 } from '@mui/material';
 import Grid from '@mui/material/Grid';
 import {
@@ -28,7 +26,7 @@ import {
   PlayArrow,
   Close,
   Check,
-  Info,
+  AutoAwesome,
 } from '@mui/icons-material';
 
 import useDiagramMessageEditor from '../hooks/useDiagramMessageEditor';
@@ -59,7 +57,6 @@ import {
   JsonSchemaEditorDialog,
   FileNameEditorDialog,
   ProcessSearchDialog,
-  ScriptAssistPanel,
   ScriptEditorDialog,
   useDiagramNavigationStack,
   useDiagramNavigationHandlers,
@@ -83,7 +80,9 @@ import {
 import { Notification } from '../components/Notification';
 import ActiveUsers from '../components/ActiveUsers';
 import useScriptAssistEnabled from '../hooks/useScriptAssistEnabled';
-import useProcessScriptAssistMessage from '../hooks/useProcessScriptAssistQuery';
+import AiTextAssistantPanel, {
+  AiTextAssistContext,
+} from '../components/AiTextAssistant/AiTextAssistantPanel';
 import { useUriListForPermissions } from '../hooks/UriListForPermissions';
 import { usePermissionFetcher } from '../hooks/PermissionService';
 import {
@@ -160,13 +159,9 @@ export default function ProcessModelEditDiagram() {
     error: string;
   } | null>(null);
 
-  const [scriptAssistValue, setScriptAssistValue] = useState<string>('');
-  const [scriptAssistError, setScriptAssistError] = useState<string | null>(
-    null,
-  );
-  const { scriptAssistEnabled } = useScriptAssistEnabled();
-  const { setScriptAssistQuery, scriptAssistLoading, scriptAssistResult } =
-    useProcessScriptAssistMessage();
+  const { scriptAssistEnabled, scriptAssistModelLabel } =
+    useScriptAssistEnabled();
+  const [aiTextAssistOpen, setAiTextAssistOpen] = useState<boolean>(false);
 
   const { targetUris } = useUriListForPermissions();
   const permissionRequestData: PermissionsToCheck = {
@@ -412,24 +407,6 @@ export default function ProcessModelEditDiagram() {
     searchParams,
     targetUris.messageModelListPath,
   ]);
-
-  /**
-   * When the value of the Editor is updated dynamically async,
-   * it doesn't seem to fire an onChange (discussions as recent as 4.2.1).
-   * The straightforward recommended fix is to handle manually, so when
-   * the scriptAssistResult is updated, call the handler manually.
-   */
-  useEffect(() => {
-    if (scriptAssistResult) {
-      if (scriptAssistResult.result) {
-        handleEditorScriptChange(scriptAssistResult.result);
-      } else if (scriptAssistResult.error_code && scriptAssistResult.message) {
-        setScriptAssistError(scriptAssistResult.message);
-      } else {
-        setScriptAssistError('Received unexpected response from server.');
-      }
-    }
-  }, [scriptAssistResult, handleEditorScriptChange]);
 
   const handleFileNameCancel = () => {
     setShowFileNameEditor(false);
@@ -935,42 +912,6 @@ export default function ProcessModelEditDiagram() {
     );
   };
 
-  /**
-   * When user clicks script assist button, set useScriptAssistQuery hook with query.
-   * This will async update scriptAssistResult as needed.
-   */
-  const handleProcessScriptAssist = () => {
-    if (scriptAssistValue) {
-      try {
-        setScriptAssistQuery(scriptAssistValue);
-        setScriptAssistError(null);
-      } catch (error) {
-        setScriptAssistError(
-          t('diagram_script_assist_error_processing', { error }),
-        );
-      }
-    } else {
-      setScriptAssistError(
-        t('diagram_script_assist_error_instructions_required'),
-      );
-    }
-  };
-
-  /* If the Script Assist tab is enabled (via scriptAssistEnabled), this is the UI */
-  const scriptAssistWindow = () => {
-    return (
-      <ScriptAssistPanel
-        value={scriptAssistValue}
-        onChange={setScriptAssistValue}
-        placeholder={t('diagram_script_assist_placeholder')}
-        error={scriptAssistError}
-        loading={scriptAssistLoading}
-        buttonLabel={t('diagram_script_assist_button')}
-        onSubmit={handleProcessScriptAssist}
-      />
-    );
-  };
-
   const scriptEditor = () => {
     return (
       <Grid container>
@@ -979,20 +920,89 @@ export default function ProcessModelEditDiagram() {
     );
   };
 
-  const scriptEditorWithAssist = () => {
+  /* Serializes the live diagram so the assistant can see the process's task data variables */
+  const getLiveBpmnXml = async (element: any): Promise<string | null> => {
+    let businessObject = element?.businessObject ?? element;
+    while (businessObject?.$parent) {
+      businessObject = businessObject.$parent;
+    }
+    try {
+      if (businessObject?.$model) {
+        const { xml } = await businessObject.$model.toXML(businessObject);
+        return xml;
+      }
+    } catch (_error) {
+      // fall back to the last loaded diagram
+    }
+    return bpmnXmlForDiagramRendering;
+  };
+
+  const aiTextAssistElementContext = (element: any) => {
+    const businessObject = element?.businessObject ?? element;
+    return {
+      id: businessObject?.id,
+      name: businessObject?.name,
+      type: businessObject?.$type ?? element?.type,
+    };
+  };
+
+  const toggleAiTextAssist = () => setAiTextAssistOpen((open) => !open);
+
+  const aiTextAssistToggleProps = scriptAssistEnabled
+    ? {
+        assistPanelOpen: aiTextAssistOpen,
+        onToggleAssist: toggleAiTextAssist,
+        assistToggleLabel: t('ai_text_toggle'),
+        assistToggleTooltip: t('ai_text_toggle_tooltip'),
+        assistToggleIcon: <AutoAwesome fontSize="small" />,
+      }
+    : {};
+
+  const scriptAssistPanel = () => {
+    const getContext = async (): Promise<AiTextAssistContext> => {
+      const unitTests = (getScriptUnitTestElements(scriptElement) || []).map(
+        (unitTest: any) => ({
+          input: unitTest.inputJson?.value ?? '{}',
+          expected: unitTest.expectedOutputJson?.value ?? '{}',
+        }),
+      );
+      return {
+        element: {
+          ...aiTextAssistElementContext(scriptElement),
+          script_type: scriptType,
+        },
+        unit_tests: unitTests,
+        process_model_identifier: modifiedProcessModelId,
+        bpmn_xml: await getLiveBpmnXml(scriptElement),
+      };
+    };
     return (
-      <Grid container>
-        <Grid size={{ xs: 7 }}>{editorWindow()}</Grid>
-        <Grid size={{ xs: 5 }}>
-          <Tooltip title={t('diagram_script_assist_tooltip')}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Info fontSize="small" />
-              <span>{t('diagram_script_assist_hint')}</span>
-            </Stack>
-          </Tooltip>
-          {scriptAssistWindow()}
-        </Grid>
-      </Grid>
+      <AiTextAssistantPanel
+        kind="script"
+        getContent={() => scriptText || ''}
+        onApply={(content) => handleEditorScriptChange(content)}
+        getContext={getContext}
+        onClose={toggleAiTextAssist}
+        modelLabel={scriptAssistModelLabel}
+      />
+    );
+  };
+
+  const markdownAssistPanel = () => {
+    const element = markdownEditorState?.element;
+    return (
+      <AiTextAssistantPanel
+        kind="markdown"
+        getContent={() => markdownText || ''}
+        onApply={(content) => setMarkdownText(content)}
+        getContext={async () => ({
+          element: aiTextAssistElementContext(element),
+          process_model_identifier: modifiedProcessModelId,
+          bpmn_xml: await getLiveBpmnXml(element),
+        })}
+        onClose={toggleAiTextAssist}
+        modelLabel={scriptAssistModelLabel}
+      />
     );
   };
 
@@ -1015,12 +1025,11 @@ export default function ProcessModelEditDiagram() {
         tabValue={scriptEditorTabValue}
         onTabChange={handleTabChange}
         scriptTabLabel={t('diagram_script_editor_tab_script_editor')}
-        assistTabLabel={t('diagram_script_editor_tab_script_assist')}
         unitTestsTabLabel={t('diagram_script_editor_tab_unit_tests')}
-        assistEnabled={scriptAssistEnabled ?? false}
         renderScript={scriptEditor}
         renderUnitTests={scriptUnitTestEditorElement}
-        renderAssist={scriptEditorWithAssist}
+        renderAssistPanel={scriptAssistEnabled ? scriptAssistPanel : undefined}
+        {...aiTextAssistToggleProps}
         closeLabel={t('close')}
         onClose={handleScriptEditorClose}
       />
@@ -1049,6 +1058,10 @@ export default function ProcessModelEditDiagram() {
         onClose={handleMarkdownEditorClose}
         title={t('diagram_markdown_editor_title')}
         closeLabel={t('close')}
+        renderAssistPanel={
+          scriptAssistEnabled ? markdownAssistPanel : undefined
+        }
+        {...aiTextAssistToggleProps}
         renderEditor={() => (
           <MDEditor
             previewOptions={markdownDirectiveOptions}

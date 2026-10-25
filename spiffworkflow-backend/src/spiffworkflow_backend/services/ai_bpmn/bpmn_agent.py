@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
@@ -21,6 +19,12 @@ from pydantic import BaseModel
 from pydantic import Field
 
 from spiffworkflow_backend.services.ai_bpmn.bpmn_document import BpmnDocument
+from spiffworkflow_backend.services.ai_bpmn.chat_utils import extract_json_object
+from spiffworkflow_backend.services.ai_bpmn.chat_utils import history_messages
+from spiffworkflow_backend.services.ai_bpmn.chat_utils import invoke_for_reply
+from spiffworkflow_backend.services.ai_bpmn.chat_utils import strip_thinking
+from spiffworkflow_backend.services.ai_bpmn.chat_utils import structured_model_for
+from spiffworkflow_backend.services.ai_bpmn.chat_utils import usage_tokens
 from spiffworkflow_backend.services.ai_bpmn.graph_ops import ProcessGraph
 from spiffworkflow_backend.services.ai_bpmn.graph_ops import apply_ops
 from spiffworkflow_backend.services.ai_bpmn.graph_ops import describe_changes
@@ -106,19 +110,13 @@ class AiBpmnResult:
 
 def parse_reply_text(text: str) -> AssistantReply:
     """Lenient parser for models that do not support structured output."""
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
-    match = re.search(r"\{.*\}", text, flags=re.DOTALL)
-    if match:
-        try:
-            data = json.loads(match.group(0))
-            if isinstance(data, dict):
-                ops = data.get("ops") or []
-                if isinstance(ops, str):
-                    ops = ops.splitlines()
-                return AssistantReply(message=str(data.get("message", "")), ops=[str(op) for op in ops])
-        except json.JSONDecodeError:
-            pass
-    lines = [line for line in text.strip("`").splitlines() if line.strip()]
+    data = extract_json_object(text)
+    if data is not None:
+        ops = data.get("ops") or []
+        if isinstance(ops, str):
+            ops = ops.splitlines()
+        return AssistantReply(message=str(data.get("message", "")), ops=[str(op) for op in ops])
+    lines = [line for line in strip_thinking(text).strip("`").splitlines() if line.strip()]
     return AssistantReply(message="", ops=lines)
 
 
@@ -131,10 +129,7 @@ class AiBpmnAgent:
 
     @staticmethod
     def _structured_model(chat_model: Any) -> Any | None:
-        try:
-            return chat_model.with_structured_output(AssistantReply, include_raw=True)
-        except (NotImplementedError, AttributeError, TypeError):
-            return None
+        return structured_model_for(chat_model, AssistantReply)
 
     def _build_workflow(self) -> Any:
         workflow = StateGraph(AgentState)
@@ -146,32 +141,20 @@ class AiBpmnAgent:
         return workflow.compile()
 
     def _invoke_model(self, messages: list[BaseMessage]) -> tuple[AssistantReply, AIMessage | None]:
-        if self.structured_model is not None:
-            result = self.structured_model.invoke(messages)
-            raw = result.get("raw") if isinstance(result, dict) else None
-            parsed = result.get("parsed") if isinstance(result, dict) else result
-            if isinstance(parsed, AssistantReply):
-                return parsed, raw
-            if isinstance(parsed, dict):
-                return AssistantReply.model_validate(parsed), raw
-            content = raw.content if raw is not None else ""
-            return parse_reply_text(content if isinstance(content, str) else json.dumps(content)), raw
-        raw = self.chat_model.invoke(messages)
-        content = raw.content if isinstance(raw.content, str) else json.dumps(raw.content)
-        return parse_reply_text(content), raw
+        return invoke_for_reply(self.chat_model, self.structured_model, AssistantReply, messages, parse_reply_text)
 
     def _call_model(self, state: AgentState) -> AgentState:
         messages = list(state["messages"])
         reply, raw = self._invoke_model(messages)
         messages.append(AIMessage(content=reply.model_dump_json()))
-        usage = getattr(raw, "usage_metadata", None) or {}
+        input_tokens, output_tokens = usage_tokens(raw)
         return {
             "messages": messages,
             "reply_message": reply.message or state.get("reply_message", ""),
             "applied_ops": state.get("applied_ops", []),
             "attempts": state.get("attempts", 0) + 1,
-            "input_tokens": state.get("input_tokens", 0) + int(usage.get("input_tokens", 0) or 0),
-            "output_tokens": state.get("output_tokens", 0) + int(usage.get("output_tokens", 0) or 0),
+            "input_tokens": state.get("input_tokens", 0) + input_tokens,
+            "output_tokens": state.get("output_tokens", 0) + output_tokens,
             "problems": [],
             "graph": state["graph"],
             "pending_ops": reply.ops,
@@ -205,18 +188,7 @@ class AiBpmnAgent:
         return "done"
 
     def _history_messages(self, history: list[dict[str, Any]]) -> list[BaseMessage]:
-        limit = self.settings.max_history_messages
-        recent = history[-limit:] if limit > 0 else []
-        messages: list[BaseMessage] = []
-        for item in recent:
-            content = str(item.get("content", "")).strip()
-            if not content:
-                continue
-            if item.get("role") == "assistant":
-                messages.append(AIMessage(content=content))
-            else:
-                messages.append(HumanMessage(content=content))
-        return messages
+        return history_messages(history, self.settings.max_history_messages)
 
     def run(
         self,
